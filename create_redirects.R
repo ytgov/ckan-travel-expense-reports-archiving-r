@@ -104,7 +104,6 @@ detailed_redirects_list <- tribble(
   ~to_url, ~language
 )
 
-
 news_release_years <- news_releases |> 
   select(year, language) |> 
   distinct()
@@ -116,7 +115,6 @@ news_release_years <- news_release_years |>
       .default = str_c("news-releases-", year)
     ) 
   )
-
 
 
 get_resources_by_news_release_package_id <- function(package_id, language) {
@@ -141,11 +139,7 @@ get_resources_by_news_release_package_id <- function(package_id, language) {
 }
 
 
-
-
 # Retrieve all news release packages and resources ------------------------
-
-
 
 for (i in seq_along(news_release_years$year)) { 
   
@@ -156,15 +150,12 @@ for (i in seq_along(news_release_years$year)) {
 }
 
 
-
 # Get news release numbers and join with existing spreadsheet data --------
 
 detailed_redirects_list <- detailed_redirects_list |> 
   mutate(
     news_release_number = str_extract(to_url, "\\/download\\/([A-Z0-9\\-]+).html", group = 1)
   )
-
-# news_releases |> View()
 
 detailed_redirects_list <- detailed_redirects_list |> 
   left_join(news_releases, by = c("news_release_number", "language")) |> 
@@ -180,7 +171,6 @@ detailed_redirects_list <- detailed_redirects_list |>
 
 detailed_redirects_list |> 
   write_csv("output_log/detailed_redirects_list.csv")
-
 
 
 # Output nginx-formatted redirects config ---------------------------------
