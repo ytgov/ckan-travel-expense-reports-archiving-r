@@ -40,6 +40,8 @@ if(file_exists(".env")) {
   ckan_url <- Sys.getenv("ckan_url")
   ckan_api_token <- Sys.getenv("ckan_api_token")
   
+  year_cutoff <- Sys.getenv("year_cutoff")
+  
 } else {
   stop("No .env file found, create it before running this script.")
 }
@@ -50,60 +52,64 @@ ckanr_setup(
 )
 
 # Pasted in from retrieve.R
-news_releases <- read_xlsx("input/yukon.ca-news-releases-published-2018-2021.xlsx")
+# news_releases <- read_xlsx("input/yukon.ca-news-releases-published-2018-2021.xlsx")
+news_releases <- read_csv("output_log/download_log.csv")
+
+news_releases <- news_releases |> 
+  filter(year < year_cutoff)
 
 # Testing: limit to a subset of news releases
-# news_releases <- news_releases |>
-#   slice_sample(n = 10)
-
-
-# Generate the current year from the date published field
-# Plus hilariously over-engineered long date formatting to match previous archive resource titles
-news_releases <- news_releases |> 
-  mutate(
-    year = str_sub(publish_date, 0L, 4L)
-  ) |> 
-  mutate(
-    formatted_date_en = str_replace(Format(parse_date(publish_date), fmt = "mmmm d, yyyy"), "  ", " ")
-  )
-
-# Formatted date but in French:
-Sys.setlocale("LC_TIME", "fr_CA.UTF-8")
-
-news_releases <- news_releases |> 
-  mutate(
-    formatted_date_fr = str_replace(Format(parse_date(publish_date), fmt = "le d mmmm yyyy", lang="fr_CA"), "  ", " "),
-    formatted_date = case_when(
-      language == "fr" ~ formatted_date_fr,
-      .default = formatted_date_en
-    )
-  )
-
-
-# Clean up some poorly-formatted news release numbers
-news_releases <- news_releases |> 
-  mutate(
-    news_release_number = str_replace_all(news_release_number, "#", ""),
-  ) |> 
-  mutate(
-    news_release_number = str_replace_all(news_release_number, "=", "-"),
-  )
-
-# Order the news releases by year, language (EN then FR), then reverse chronological date for display on dataset pages
 news_releases <- news_releases |>
-  arrange(
-    desc(year),
-    language,
-    desc(publish_date)
-  )
+  slice_sample(n = 10)
+
+
+# # Generate the current year from the date published field
+# # Plus hilariously over-engineered long date formatting to match previous archive resource titles
+# news_releases <- news_releases |> 
+#   mutate(
+#     year = str_sub(publish_date, 0L, 4L)
+#   ) |> 
+#   mutate(
+#     formatted_date_en = str_replace(Format(parse_date(publish_date), fmt = "mmmm d, yyyy"), "  ", " ")
+#   )
+# 
+# # Formatted date but in French:
+# Sys.setlocale("LC_TIME", "fr_CA.UTF-8")
+# 
+# news_releases <- news_releases |> 
+#   mutate(
+#     formatted_date_fr = str_replace(Format(parse_date(publish_date), fmt = "le d mmmm yyyy", lang="fr_CA"), "  ", " "),
+#     formatted_date = case_when(
+#       language == "fr" ~ formatted_date_fr,
+#       .default = formatted_date_en
+#     )
+#   )
+# 
+# 
+# # Clean up some poorly-formatted news release numbers
+# news_releases <- news_releases |> 
+#   mutate(
+#     news_release_number = str_replace_all(news_release_number, "#", ""),
+#   ) |> 
+#   mutate(
+#     news_release_number = str_replace_all(news_release_number, "=", "-"),
+#   )
+# 
+# # Order the news releases by year, language (EN then FR), then reverse chronological date for display on dataset pages
+# news_releases <- news_releases |>
+#   arrange(
+#     desc(year),
+#     language,
+#     desc(publish_date)
+#   )
 
 # Template text -----------------------------------------------------------
 
-template_en_title <- "News releases {year}"
-template_fr_title <- "Communiqués de presse {year}"
+template_en_title <- "Minister travel expense reports {year}"
+template_fr_title <- "Frais de déplacement des ministres {year}"
 
-template_en_description <- "All {year} news releases from the Government of Yukon.\n\n[View current Government of Yukon news](https://yukon.ca/news)."
-template_fr_description <- "Tous les communiqués de presse de {year} du gouvernement du Yukon.\n\n[Consulter les derniers communiqués du gouvernement du Yukon](https://yukon.ca/fr/communiques-de-presse)."
+template_en_description <- "All {year} Minister travel expense reports from the Government of Yukon.\n\n[View current Minister travel expense reports](https://yukon.ca/en/your-government/performance-and-finance/find-minister-travel-expense-reports)."
+template_fr_description <- "Tous les frais de déplacement des ministres de {year} du gouvernement du Yukon.\n\n[Consulter les derniers frais de déplacement des ministres](https://yukon.ca/fr/votre-gouvernement/bilan-et-finances/frais-de-deplacement-des-ministres)."
 
 
 # Helper functions --------------------------------------------------------
@@ -223,16 +229,18 @@ add_resources_by_year <- function(news_year, news_language = "en") {
   parent_dataset <- create_news_release_package_if_needed(news_year, news_language)
   
   # Add resources for each row in current_year_news_releases
-  for (i in seq_along(current_year_news_releases$node_id)) { 
+  for (i in seq_along(current_year_news_releases$url)) { 
     
-    html_resource_path <- path("output", current_year_news_releases$language[i], current_year_news_releases$year[i], str_c(current_year_news_releases$news_release_number[i], ".html"))
+    # html_resource_path <- path("output", current_year_news_releases$language[i], current_year_news_releases$year[i], str_c(current_year_news_releases$news_release_number[i], ".html"))
+    html_resource_path <- current_year_news_releases$filepath[i]
     
-    add_log_entry(str_c("Uploading resource for ", current_year_news_releases$news_release_number[i], " from path ", html_resource_path))
+    add_log_entry(str_c("Uploading resource for ", current_year_news_releases$title[i], " from path ", html_resource_path))
     
     parent_dataset |> 
       resource_create(
-        name = str_c(current_year_news_releases$title[i], ", ", current_year_news_releases$formatted_date[i]),
-        description = current_year_news_releases$meta_description[i],
+        name = str_c(current_year_news_releases$title[i]),
+        # description = current_year_news_releases$meta_description[i],
+        description = "",
         upload = html_resource_path
       )
     
