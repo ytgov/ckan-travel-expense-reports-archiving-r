@@ -29,15 +29,19 @@ add_log_entry <- function(log_text) {
 }
 
 download_log <- tribble(
-  ~time, ~url, ~filesize
+  ~time, ~url, ~filesize, ~filepath, ~language, ~year, ~title
 )
 
-add_download_log_entry <- function(url, filesize) {
+add_download_log_entry <- function(url, filesize, filepath, language, year, title) {
   
   new_row = tibble_row(
     time = now(),
     url = url,
-    filesize = filesize
+    filesize = filesize,
+    filepath = filepath,
+    language = language,
+    year = year,
+    title = title
   )
   
   download_log <<- download_log |>
@@ -120,7 +124,7 @@ retrieve_individual_expense_report <- function(page_url, language) {
   # }
   
   # Be gentle to the server between requests!
-  Sys.sleep(0.4)
+  Sys.sleep(0.2)
   
   
   # Remove unnecessarily <main> child elements:
@@ -137,6 +141,9 @@ retrieve_individual_expense_report <- function(page_url, language) {
   remove_node_related_tasks <- expense_report_main |> 
     html_node("div.block-views-blockrelated-tasks-block-1")
 
+  remove_node_historical_navbar <- expense_report_main |> 
+    html_node("aside.layout-sidebar-first")
+  
   
   # Thanks to
   # https://stackoverflow.com/a/50769954/756641
@@ -144,6 +151,7 @@ retrieve_individual_expense_report <- function(page_url, language) {
   xml2::xml_remove(remove_node_date_modified)
   xml2::xml_remove(remove_node_breadcrumbs)
   xml2::xml_remove(remove_node_related_tasks)
+  xml2::xml_remove(remove_node_historical_navbar)
   
   
   # Create the output directory if it doesn't already exists:
@@ -172,7 +180,7 @@ retrieve_individual_expense_report <- function(page_url, language) {
     str_replace_all('href="/fr/', 'href="https://yukon.ca/fr/')
   
   # Log how much text there was as a retrieval error check
-  add_download_log_entry(page_url, str_length(formatted_expense_report_html))
+  add_download_log_entry(page_url, str_length(formatted_expense_report_html), html_output_path, language, year, expense_report_title)
   
   news_release_output <- str_c(
     formatted_html_template_start,
