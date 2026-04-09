@@ -59,8 +59,8 @@ news_releases <- news_releases |>
   filter(year < year_cutoff)
 
 # Testing: limit to a subset of news releases
-news_releases <- news_releases |>
-  slice_sample(n = 10)
+# news_releases <- news_releases |>
+#   slice_sample(n = 3)
 
 
 # # Generate the current year from the date published field
@@ -96,12 +96,12 @@ news_releases <- news_releases |>
 #   )
 # 
 # # Order the news releases by year, language (EN then FR), then reverse chronological date for display on dataset pages
-# news_releases <- news_releases |>
-#   arrange(
-#     desc(year),
-#     language,
-#     desc(publish_date)
-#   )
+news_releases <- news_releases |>
+  arrange(
+    desc(year),
+    language,
+    desc(date)
+  )
 
 # Template text -----------------------------------------------------------
 
@@ -168,9 +168,26 @@ create_news_release_package_if_needed <- function(news_year, news_language = "en
   
   if(news_language == "en") {
     language_name = "english"
+    
+    tags <- tribble(
+      ~name,
+      as.character(news_year),
+      "publications",
+      "expense-reports",
+      "travel-expense-reports"
+    )
+    
   }
   else {
     language_name = "french"
+    
+    tags <- tribble(
+      ~name,
+      as.character(news_year),
+      "publications",
+      "frais-de-déplacement"
+    )
+    
   }
   
   # Check if package exists
@@ -198,7 +215,10 @@ create_news_release_package_if_needed <- function(news_year, news_language = "en
         publication_required_under_atipp_act = "Yes",
         publication_type_under_atipp_act = "organizational_responsibilities_and_functions",
         language = language_name
-      )
+      ),
+      
+      tags = tags
+      
     )
     
   })
