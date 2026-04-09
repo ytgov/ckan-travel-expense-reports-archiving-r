@@ -29,10 +29,10 @@ add_log_entry <- function(log_text) {
 }
 
 download_log <- tribble(
-  ~time, ~url, ~filesize, ~filepath, ~language, ~year, ~title
+  ~time, ~url, ~filesize, ~filepath, ~language, ~year, ~date, ~title
 )
 
-add_download_log_entry <- function(url, filesize, filepath, language, year, title) {
+add_download_log_entry <- function(url, filesize, filepath, language, year, date, title) {
   
   new_row = tibble_row(
     time = now(),
@@ -41,6 +41,7 @@ add_download_log_entry <- function(url, filesize, filepath, language, year, titl
     filepath = filepath,
     language = language,
     year = year,
+    date = date,
     title = title
   )
   
@@ -180,7 +181,8 @@ retrieve_individual_expense_report <- function(page_url, language) {
     str_replace_all('href="/fr/', 'href="https://yukon.ca/fr/')
   
   # Log how much text there was as a retrieval error check
-  add_download_log_entry(page_url, str_length(formatted_expense_report_html), html_output_path, language, year, expense_report_title)
+  # Plus add a bunch of metadata used during the upload process
+  add_download_log_entry(page_url, str_length(formatted_expense_report_html), html_output_path, language, year, expense_report_date, expense_report_title)
   
   news_release_output <- str_c(
     formatted_html_template_start,
@@ -198,6 +200,20 @@ retrieve_individual_expense_report <- function(page_url, language) {
 
 expense_urls_en <- get_expense_report_urls(language = "en")
 expense_urls_fr <- get_expense_report_urls(language = "fr")
+
+# Manually add the 2016 entries that are on a different page
+# https://yukon.ca/en/your-government/performance-and-finance/find-minister-travel-expense-reports/2016-minister-travel
+expense_urls_en <- append(expense_urls_en, c(
+  "https://yukon.ca/en/your-government/performance-and-finance/find-minister-travel-expense-reports/travel-expense-10",
+  "https://yukon.ca/en/your-government/performance-and-finance/find-minister-travel-expense-reports/travel-expense-18"
+))
+
+# https://yukon.ca/fr/votre-gouvernement/bilan-et-finances/frais-de-deplacement-des-ministres/frais-de-deplacement-des
+expense_urls_fr <- append(expense_urls_fr, c(
+  "https://yukon.ca/fr/votre-gouvernement/bilan-et-finances/frais-de-deplacement-des-ministres/frais-de-deplacement-pour-5",
+  "https://yukon.ca/fr/votre-gouvernement/bilan-et-finances/frais-de-deplacement-des-ministres/frais-de-deplacement-pour-13"
+))
+
 
 for (i in seq_along(expense_urls_en)) { 
   
@@ -226,22 +242,3 @@ if(count(download_log) > 0) {
   download_log |> 
     write_csv("output_log/download_log.csv")
 }
-
-
-# # Produce a redirects helper file
-# # with per-language destination URLs to the publication page:
-# redirects_list <- news_releases |> 
-#   mutate(
-#     from_url = page_url,
-#     to_url = case_when(
-#       language == "fr" ~ str_c("https://open.yukon.ca/information/communiques-de-presse-", year),
-#       .default = str_c("https://open.yukon.ca/information/news-releases-", year)
-#     )
-#   ) |> select(
-#     from_url,
-#     to_url,
-#     node_id
-#   )
-# 
-# redirects_list |> 
-#   write_csv("output_log/redirects_list.csv")
